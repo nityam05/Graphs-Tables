@@ -1,0 +1,223 @@
+//== CS400 Fall 2024 File Header Information ==
+//Name: Nitya Madadi
+//Email: nrmadadi@wisc.edu
+//Lecturer: Gary Dahl
+
+//Import statements
+import java.util.LinkedList;
+import java.util.NoSuchElementException;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+/*
+ * HashtableMap class implements the MapADT interface for a hash table.
+ */
+public class HashtableMap<KeyType, ValueType> implements MapADT<KeyType, ValueType> {
+    
+  /*
+   * Pair class helps to group the key and value together for storage in linked lists.
+   * This was provided by the instructor. 
+   */
+    protected class Pair {
+        public KeyType key;
+        public ValueType value;
+
+        public Pair(KeyType key, ValueType value) {
+            this.key = key;
+            this.value = value;
+        }
+    }
+
+    private LinkedList<Pair>[] table; //Creating an array of linked lists for chaining
+    private int size; //Creating a size instance variable for tracking the number of key-value pairs
+
+    /*
+     * This constructor helps to initialize the hash table with a specified capacity.
+     */
+    @SuppressWarnings("unchecked")
+    public HashtableMap(int capacity) {
+        this.table = (LinkedList<Pair>[]) new LinkedList[capacity];
+        this.size = 0; //setting size to 0
+    }
+
+    /*
+     * This constructor helps to initialize the hash table with a default capacity of 64.
+     */
+    @SuppressWarnings("unchecked")
+    public HashtableMap() {
+        this(64);
+    }
+    
+    /**
+     * Adds a new key,value pair/mapping to this collection.
+     * @param key the key of the key,value pair
+     * @param value the value that key maps to
+     * @throws IllegalArgumentException if key already maps to a value
+     * @throws NullPointerException if key is null
+     */
+    @Override
+   public void put(KeyType key, ValueType value) throws IllegalArgumentException{
+    if(key == null) { //Checking that the key is not null
+      throw new NullPointerException("The key is null."); 
+    }
+      //Calculating the index for the table for the given key and checking if it's null, if it is, we'll set it equal to a new LinkedList
+      if(table[Math.abs(key.hashCode()) % table.length] == null) {
+        table[Math.abs(key.hashCode()) % table.length] = new LinkedList<>();
+      }
+      //Iterating through the bucket to check if the key already exists within it
+      for(Pair putPair : table[Math.abs(key.hashCode()) % table.length]) {
+        if(putPair.key.equals(key)) {
+	  putPair.value = value;
+          //Throwing an IllegalArgumentException if the key already exists. 
+          return;
+        }
+      }
+
+      //Increasing the size
+      size++;
+      //Adding a new key-value pair to the bucket
+      table[Math.abs(key.hashCode()) % table.length].add(new Pair(key, value));
+
+      //Checking if the load factor exceeds 0.8, and if it does, we must resize the hash table
+      if((double) size / table.length >= 0.8) {
+	LinkedList<Pair>[] old = table;
+    	table = (LinkedList<Pair>[]) new LinkedList[old.length*2];
+    	size = 0;
+    	for(LinkedList<Pair> current : old) {
+      		if(current != null) {
+        		for(Pair currentP : current) {
+         			 put(currentP.key, currentP.value);
+        		}
+      		}
+    	}
+        
+      }
+    }
+    /**
+     * Checks whether a key maps to a value in this collection.
+     * @param key the key to check
+     * @return true if the key maps to a value, and false is the
+     *         key doesn't map to a value
+     */
+    @Override
+    public boolean containsKey(KeyType key) {
+      //Creating a new boolean variable called contains 
+      boolean contains = false;
+      //If the key is not null then we will iterate through the bucket and search if the particular key is contained within the table
+        if(key != null) {
+          if(table[Math.abs(key.hashCode()) % table.length] != null) {
+            for(Pair containsPair: table[Math.abs(key.hashCode()) % table.length]) {
+              if(containsPair.key.equals(key)) {
+                contains = true;
+              }
+            }
+          } else {
+            //If the bucket ends up being null then the key cannot exist so contains would be false
+            contains = false;
+          }
+        } else {
+          //Or else if the key is null then the key is not contained within the bucket and contains would be false
+          contains = false;
+        }
+        
+      //returning the contains variable
+      return contains;
+    }
+    
+    /**
+     * Retrieves the specific value that a key maps to.
+     * @param key the key to look up
+     * @return the value that key maps to
+     * @throws NoSuchElementException when key is not stored in this
+     *         collection
+     */
+    @Override
+    public ValueType get(KeyType key) throws NoSuchElementException {
+        //Checking the key is not null or that the key is contained within the table
+        if(key != null || containsKey(key)) {
+          //Iterating through the bucket and checking that the key passed matches any of the keys and if it does, we'll return the keys value
+          for(Pair getPair: table[Math.abs(key.hashCode()) % table.length]) {
+            if(getPair.key.equals(key)) {
+              return getPair.value;
+            }
+          }
+          //Returning a NoSuchElementException if the key passed does not match any of the keys and if the key is null or is not contained within the table
+          throw new NoSuchElementException("Could not get key, no key found.");
+        } else {
+          throw new NoSuchElementException("Could not get key, no key found.");
+        }
+    }
+    
+    /**
+     * Remove the mapping for a key from this collection.
+     * @param key the key whose mapping to remove
+     * @return the value that the removed key mapped to
+     * @throws NoSuchElementException when key is not stored in this
+     *         collection
+     */
+    @Override
+    public ValueType remove(KeyType key) throws NoSuchElementException {
+        //Checking the key is not null or that the key is contained within the table
+        if(key != null || containsKey(key)) {
+          LinkedList<Pair> bucket = table[Math.abs(key.hashCode()) % table.length]; //Creating a bucket/linked list at the index
+          //Iterating through the bucket and checking that the key passed matches any of the keys and if it does, we'll return the keys value
+          for(Pair removePair: bucket) {
+            if(removePair.key.equals(key)) {
+              size--; //Decrement the size 
+              bucket.remove(removePair); //Remove the key
+              return removePair.value; //Returning the removed key's value
+             }
+          }
+        //Returning a NoSuchElementException if the key passed does not match any of the keys and if the key is null or is not contained within the table
+          throw new NoSuchElementException("Key has not been found.");
+        } else {
+          throw new NoSuchElementException("Key has not been found.");
+        }
+    }
+    
+    /*
+     * Clears the hash table. 
+     */
+    @Override
+    public void clear() {
+        size = 0; //setting size to 0
+        table = (LinkedList<Pair>[]) new LinkedList[table.length];
+    }
+
+    /*
+     * Returns the current size, specifically the number of key-value pairs within it.
+     * @return the current size
+     */
+    @Override
+    public int getSize() {
+        return size; //returning the size
+    }
+    
+    /*
+     * Returns the capacity of the table.
+     * @return the capacity of the table
+     */
+    @Override
+    public int getCapacity() {
+        return table.length; //returning the length of the table
+    }
+
+    /*
+     * Returns all key pairs in the Hastable.
+     * @return a LinkedList with all the key pairs in the Hashtable.
+     */
+    public LinkedList<KeyType> getKeys() {
+    	LinkedList<KeyType> keys = new LinkedList<>();
+    	// Iterate through each bucket in the hash table
+    	for (LinkedList<Pair> bucket : table) {
+        	if (bucket != null) {
+            	// Add keys from each Pair in the current bucket
+            		for (Pair pair : bucket) {
+                		keys.add(pair.key);
+            		}
+        	}
+    	}
+    return keys;
+    }
+}
