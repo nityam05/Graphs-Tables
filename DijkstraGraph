@@ -1,0 +1,310 @@
+// --== CS400 Fall 2024 File Header Information ==--
+// Name: Nitya Madadi
+// Email: nrmadadi@wisc.edu
+// Lecturer: Gary Dahl
+
+import java.util.PriorityQueue;
+import java.util.List;
+import java.util.LinkedList;
+import java.util.NoSuchElementException;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+
+/**
+ * This class extends the BaseGraph data structure with additional methods for computing the total
+ * cost and list of node data along the shortest path connecting a provided starting to ending
+ * nodes. This class makes use of Dijkstra's shortest path algorithm.
+ */
+public class DijkstraGraph<NodeType, EdgeType extends Number> extends BaseGraph<NodeType, EdgeType>
+    implements GraphADT<NodeType, EdgeType> {
+
+  /**
+   * While searching for the shortest path between two nodes, a SearchNode contains data about one
+   * specific path between the start node and another node in the graph. The final node in this path
+   * is stored in its node field. The total cost of this path is stored in its cost field. And the
+   * predecessor SearchNode within this path is referened by the predecessor field (this field is
+   * null within the SearchNode containing the starting node in its node field).
+   *
+   * SearchNodes are Comparable and are sorted by cost so that the lowest cost SearchNode has the
+   * highest priority within a java.util.PriorityQueue.
+   */
+  protected class SearchNode implements Comparable<SearchNode> {
+    public Node node;
+    public double cost;
+    public SearchNode predecessor;
+
+    public SearchNode(Node node, double cost, SearchNode predecessor) {
+      this.node = node;
+      this.cost = cost;
+      this.predecessor = predecessor;
+    }
+
+    public int compareTo(SearchNode other) {
+      if (cost > other.cost)
+        return +1;
+      if (cost < other.cost)
+        return -1;
+      return 0;
+    }
+  }
+
+  /**
+   * Constructor that sets the map that the graph uses.
+   */
+  public DijkstraGraph() {
+    super(new HashtableMap<>());
+  }
+
+  /**
+   * This helper method creates a network of SearchNodes while computing the shortest path between
+   * the provided start and end locations. The SearchNode that is returned by this method is
+   * represents the end of the shortest path that is found: it's cost is the cost of that shortest
+   * path, and the nodes linked together through predecessor references represent all of the nodes
+   * along that shortest path (ordered from end to start).
+   *
+   * @param start the data item in the starting node for the path
+   * @param end   the data item in the destination node for the path
+   * @return SearchNode for the final end node within the shortest path
+   * @throws NoSuchElementException when no path from start to end is found or when either start or
+   *                                end data do not correspond to a graph node
+   */
+   protected SearchNode computeShortestPath(NodeType start, NodeType end) {
+    
+      if(!nodes.containsKey(start)|| !nodes.containsKey(end)){
+        throw new NoSuchElementException("The first or last node was not found.");
+      }  
+      
+      //Creating the priorityQueue so we can determine the next node to visit as per the shortest distance.
+      PriorityQueue<SearchNode> priorityQueue = new PriorityQueue<>();
+      //Creating the HashtableMap to store the shortest known distance to each node.
+      HashtableMap<NodeType, Double> nodeDistances = new HashtableMap<>();
+      //Creating the HashtableMap to store the visited nodes.
+      HashtableMap<Node, SearchNode> visitedNodes = new HashtableMap<>();
+
+      //Grabbing the node objects for the start and end.
+      Node starterNode = nodes.get(start);
+      Node enderNode = nodes.get(end);
+
+      //Adding the starting node to the priority queue and giving it a distance of 0.0.
+      nodeDistances.put(start, 0.0);
+      priorityQueue.add(new SearchNode(starterNode, 0, null));
+      
+      int count = 0;
+ 
+      //Continue to process nodes until the priority queue is empty.
+      while(!priorityQueue.isEmpty()){
+        count++;
+        //Grabbing the node with the smallest cost from the priority queue.
+        SearchNode currentSearchNode = priorityQueue.poll();
+
+        //We'll skip this node if we've already visited it
+        if (visitedNodes.containsKey(currentSearchNode.node)) {
+          continue;
+        }
+
+        //Mark the node as visited
+        visitedNodes.put(currentSearchNode.node, currentSearchNode);
+
+        //Checking if we've reached the end node
+        if (currentSearchNode.node == enderNode) {
+          return currentSearchNode;
+        }       
+        
+          //Looking at all the edges as we leave the current node
+          for (Edge edge : currentSearchNode.node.edgesLeaving) {
+            //Grabbing the cost of the current search node
+            double cost = currentSearchNode.cost + edge.data.doubleValue();//If the successor has not been found or if we find a shorter path, then we'll update the shortest distance to the successor and add the successor to the queue with the updated >
+            if (!nodeDistances.containsKey(edge.successor.data) || (cost) < nodeDistances.get(edge.successor.data)) {
+              nodeDistances.put(edge.successor.data, cost);
+              priorityQueue.add(new SearchNode(edge.successor, cost, currentSearchNode));
+            }
+          }
+        }
+    //We'll throw an NoSuchElementException if there as no path found from start to end.
+    throw new NoSuchElementException("There was no path found from start to end.");
+  }
+  /**
+   * Returns the list of data values from nodes along the shortest path from the node with the
+   * provided start value through the node with the provided end value. This list of data values
+   * starts with the start value, ends with the end value, and contains intermediary values in the
+   * order they are encountered while traversing this shorteset path. This method uses Dijkstra's
+   * shortest path algorithm to find this solution.
+   *
+   * @param start the data item in the starting node for the path
+   * @param end   the data item in the destination node for the path
+   * @return list of data item from node along this shortest path
+   */
+  public List<NodeType> shortestPathData(NodeType start, NodeType end) {
+    //Computing the shortest path from the start and end and we'll get the SearchNode representing the end node.
+    SearchNode endingNode = computeShortestPath(start, end);
+    //Creating a linked list so that we can store the path data from start to end.
+    LinkedList<NodeType> newPath = new LinkedList<>();
+    SearchNode currentNode = endingNode;
+    
+    //Starting from the endingNode, we'll trace back to the start node.
+    while (currentNode != null) {
+        //Adding the current node's data to the front of the list.
+        newPath.addFirst(currentNode.node.data);
+        //Updating currentNode with it's predecessor.
+        currentNode = currentNode.predecessor;
+    }
+    
+    //Returning the list which contains the data values from start to end in the path.
+    return newPath;
+  }
+
+  /**
+   * Returns the cost of the path (sum over edge weights) of the shortest path freom the node
+   * containing the start data to the node containing the end data. This method uses Dijkstra's
+   * shortest path algorithm to find this solution.
+   *
+   * @param start the data item in the starting node for the path
+   * @param end   the data item in the destination node for the path
+   * @return the cost of the shortest path between these nodes
+   */
+  public double shortestPathCost(NodeType start, NodeType end) {
+    //Computing the shortest path from the start and end and we'll get the SearchNode representing the end node.
+    SearchNode endingNode = computeShortestPath(start, end);
+    //Grabbing the cost of the endingNode.
+    double endCost = endingNode.cost;
+    //Returning the cost of the shortest path between the start and end.
+    return endCost;
+  }
+
+  /**
+   * This test simulates the Dijkstra's graph as presented in slide 5 of W09: Shortest Paths and Web
+   * Servers from Gary's lectures. Specifically, this test is testing that the shortestPathData()
+   * and shortestPathCost() methods work as expected to find the correct shortest path and cost from
+   * D to I.
+   */
+  @Test
+  public void test1() {
+    DijkstraGraph<String, Double> graphT1 = new DijkstraGraph<>();
+
+    //Node's inserted based on lecture example.
+    graphT1.insertNode("A");
+    graphT1.insertNode("B");
+    graphT1.insertNode("M");
+    graphT1.insertNode("E");
+    graphT1.insertNode("I");
+    graphT1.insertNode("D");
+    graphT1.insertNode("F");
+    graphT1.insertNode("G");
+    graphT1.insertNode("H");
+    graphT1.insertNode("L");
+
+    //Node paths established as per lecture example.
+    graphT1.insertEdge("A", "B", 1.0);
+    graphT1.insertEdge("A", "D", 7.0);
+    graphT1.insertEdge("B", "M", 3.0);
+    graphT1.insertEdge("M", "I", 4.0);
+    graphT1.insertEdge("E", "M", 3.0);
+    graphT1.insertEdge("I", "H", 2.0);
+    graphT1.insertEdge("D", "E", 1.0);
+    graphT1.insertEdge("D", "G", 2.0);
+    graphT1.insertEdge("D", "F", 4.0);
+    graphT1.insertEdge("G", "H", 9.0);
+    graphT1.insertEdge("G", "L", 7.0);
+    graphT1.insertEdge("H", "L", 2.0);
+
+    // Calculating shortest path using shortestPathData() method from D to I
+    List<String> path = graphT1.shortestPathData("D", "I");
+    // Calculating cost using shortestPathCost() method from D to I
+    double cost = graphT1.shortestPathCost("D", "I");
+
+    // Checking that the calculated path and cost match what we expected.
+    assertEquals(List.of("D", "E", "M", "I"), path);
+    assertEquals(8.0, cost);
+  }
+
+  /**
+   * This test simulates the Dijkstra's graph as presented in slide 5 of W09: Shortest Paths and Web
+   * Servers from Gary's lectures as done in test1() above. Specifically, this test is testing that
+   * the shortestPathData() and shortestPathCost() methods work as expected to find the shortest
+   * path from A to I.
+   */
+  @Test
+  public void test2() {
+    DijkstraGraph<String, Double> graphT2 = new DijkstraGraph<>();
+
+    //Node's inserted based on lecture example.
+    graphT2.insertNode("A");
+    graphT2.insertNode("B");
+    graphT2.insertNode("M");
+    graphT2.insertNode("E");
+    graphT2.insertNode("I");
+    graphT2.insertNode("D");
+    graphT2.insertNode("F");
+    graphT2.insertNode("G");
+    graphT2.insertNode("H");
+    graphT2.insertNode("L");
+
+    //Node paths established as per lecture example.
+    graphT2.insertEdge("A", "B", 1.0);
+    graphT2.insertEdge("A", "D", 7.0);
+    graphT2.insertEdge("B", "M", 3.0);
+    graphT2.insertEdge("M", "I", 4.0);
+    graphT2.insertEdge("E", "M", 3.0);
+    graphT2.insertEdge("I", "H", 2.0);
+    graphT2.insertEdge("D", "E", 1.0);
+    graphT2.insertEdge("D", "G", 2.0);
+    graphT2.insertEdge("D", "F", 4.0);
+    graphT2.insertEdge("G", "H", 9.0);
+    graphT2.insertEdge("G", "L", 7.0);
+    graphT2.insertEdge("H", "L", 2.0);
+
+    // Calculating shortest path using shortestPathData() method from A to G
+    List<String> path = graphT2.shortestPathData("A", "I");
+    // Calculating cost using shortestPathCost() method from A to G
+    double cost = graphT2.shortestPathCost("A", "I");
+
+    // Checking that the calculated path and cost match what we expected.
+    assertEquals(List.of("A", "B", "M", "I"), path);
+    assertEquals(8.0, cost);
+  }
+
+  /**
+   * This test simulates a Dijkstra's graph that has no path between A and F, and ensures that a
+   * NoSuchElementException is thrown when attempting to find the shortest path or cost from A to F.
+   */
+  @Test
+  public void test3() {
+    DijkstraGraph<String, Double> graphT3 = new DijkstraGraph<>();
+
+    // Inserting nodes A B M and F
+    graphT3.insertNode("A");
+    graphT3.insertNode("B");
+    graphT3.insertNode("M");
+    graphT3.insertNode("F");
+
+    // Establishing paths from nodes A to B and nodes B to M, but making sure not to establish a
+    // path from A to F
+    graphT3.insertEdge("A", "B", 1.0);
+    graphT3.insertEdge("B", "M", 3.0);
+
+    // Now we're checking that the NoSuchElementException is thrown when shortestPathData() and
+    // shortestPathCost() are called on A to F
+    
+    // First checking with the shortestPathData() method
+    boolean exceptionThrownT3 = false;
+    try {
+      graphT3.shortestPathData("A", "F");
+    } catch (NoSuchElementException e) {
+      // exceptionThrownT3 set to true since we want an exception to occur here.
+      exceptionThrownT3 = true; 
+    }
+    assertTrue(exceptionThrownT3);
+
+    // Second checking with the shortestPathCost() method
+    exceptionThrownT3 = false; // Resetting exceptionThrown boolean variable for next test
+    try {
+      graphT3.shortestPathCost("A", "F");
+    } catch (NoSuchElementException e) {
+      // exceptionThrownT3 set to true since we want an exception to occur here.
+      exceptionThrownT3 = true; 
+    }
+    assertTrue(exceptionThrownT3);
+  }
+}
